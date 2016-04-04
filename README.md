@@ -1,3 +1,5 @@
+[forked version for allowing initialisation of codes with units longer than a character]
+
 Subword Neural Machine Translation
 ==================================
 
