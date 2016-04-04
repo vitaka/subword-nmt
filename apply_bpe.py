@@ -29,19 +29,20 @@ if sys.version_info < (3, 0):
 
 class BPE(object):
 
-    def __init__(self, codes, separator='@@'):
+    def __init__(self, codes, separator='@@', presegmentedInput=False):
         self.bpe_codes = [tuple(item.split()) for item in codes]
         # some hacking to deal with duplicates (only consider first instance)
         self.bpe_codes = dict([(code,i) for (i,code) in reversed(list(enumerate(self.bpe_codes)))])
 
         self.separator = separator
+        self.preSegmented=presegmentedInput
 
     def segment(self, sentence):
         """segment single sentence (whitespace-tokenized string) with BPE encoding"""
 
         output = []
         for word in sentence.split():
-            new_word = encode(word, self.bpe_codes)
+            new_word = encode(word, self.bpe_codes, self.preSegmented)
 
             for item in new_word[:-1]:
                 output.append(item + self.separator)
@@ -69,6 +70,9 @@ def create_parser():
     parser.add_argument(
         '--separator', '-s', type=str, default='@@', metavar='STR',
         help="Separator between non-final subword units (default: '%(default)s'))")
+    parser.add_argument(
+        '--long', '-l', action='store_true',
+        help="Input has been pre-segmented. pre-detected segments are split by '|'. Use this option together with learn_bpe.py -l")
 
     return parser
 
@@ -84,14 +88,16 @@ def get_pairs(word):
         prev_char = char
     return pairs
 
-def encode(orig, bpe_codes, cache={}):
+def encode(orig, bpe_codes, preSegmented, cache={}):
     """Encode word based on list of BPE merge operations, which are applied consecutively
     """
 
     if orig in cache:
         return cache[orig]
-
-    word = tuple(orig) + ('</w>',)
+    if preSegmented:
+        word = tuple(orig.split('|')) + ('</w>',)
+    else:
+        word = tuple(orig) + ('</w>',)
     pairs = get_pairs(word)
 
     while True:
@@ -137,7 +143,7 @@ if __name__ == '__main__':
     parser = create_parser()
     args = parser.parse_args()
 
-    bpe = BPE(args.codes, args.separator)
+    bpe = BPE(args.codes, args.separator, args.long)
 
     for line in args.input:
         args.output.write(bpe.segment(line).strip())
